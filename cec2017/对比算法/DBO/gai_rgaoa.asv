@@ -1,0 +1,46 @@
+function [bestfit,Bestcost1,Bestcost2,pop,t]=gai_rgaoa(fobj,fhd,lb,ub,dim,search_agent,FF)
+np=search_agent;
+FE=0;
+maxFE=300000;
+it=0;
+maxit=3000;
+bestcost=inf;
+lbxx=lb(1);
+ubsx=ub(1);
+%% 初始化
+for i=1:np
+    pop(i,:)=lbxx+rand(1,dim).*(ubsx-lbxx);
+    fit_0(i,1)=feval(fhd,pop(i,:)',fobj);
+    FE=FE+1;
+    if fit_0(i)<bestcost
+        bestcost=fit_0(i);
+    end
+    Bestcost1(FE)=bestcost;    
+end
+[~,xu]=sort(fit_0);
+gbest_fit=fit_0(xu(1));
+gbest_position=pop(xu(1),:);
+aerfa=5;
+moamax=1;moamin=0.2;
+while FE<maxFE
+    it=it+1;
+    Bestcost2(it)=bestcost;    
+    mop=1-(it^(1/aerfa))/(maxit^(1/aerfa));
+    moa=moamin+it*((moamax-moamin)/maxit)
+
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+end

@@ -1,0 +1,437 @@
+function [bestfit,Bestcost1,Bestcost2,pop,tk]=IGKSO2019(fobj,lb,ub,dim,N)
+% ub=100*ones(1,dim);
+% lb=-100*ones(1,dim)
+%%初始化
+% f=zeros(1,20);
+%准反向学习机制
+X=lb+(ub-lb).*rand(N,dim);
+bestfit1=inf;
+MaxFES=100000;
+% FES = 0;
+FE=0;
+for i=1:length(X)
+     fit(i,1)=feval(fobj,X(i,:));
+    FE=FE+1;
+    if bestfit1> fit(i,1)
+        bestfit1= fit(i,1);
+    end
+    Bestcost1(FE)=bestfit1;
+end
+[bestfit1k,best_index]=min(fit);
+xbest=X(best_index,:);
+
+Max_iter=323;
+% fit1=sort(fit);  %对适应度进行排序
+% pbest=X;
+% fitpbest=fit;
+m=1.5;
+% curve=zeros(Max_iter,1); %每一代的最优值基于代数画一个曲线
+% p=zeros(500,1);
+% w=zeros(500,1);
+w1(1)=0.1;
+% m(1)=0.01;
+%t=1;
+% n1=zeros(4,50);
+% count1=zeros(Max_iter,1);
+% count2=zeros(Max_iter,1);
+% count3=zeros(Max_iter,1);
+% count4=zeros(Max_iter,1);
+t=0;
+while  FE < MaxFES
+    t = t +1;
+    
+    Bestcost2(t)=bestfit1;
+    
+    
+    w1(t+1)=1-2*(w1(t))^4;
+    
+    
+    p(t)=2*(1-(t/Max_iter)^0.25+abs(w1(t+1))*((t/Max_iter)^0.25-(t/Max_iter)^3)); %数组回头检查一下 %数组回头检查一下
+    
+    %    alpha1=0.5*cos(t*pi/250)+0.5;
+    %    alpha2=0.2*cos(t*pi*(-0.05))+0.2;
+    
+    %     p(t)=(1-(t/Max_iter))^(1-(t/Max_iter));
+    %p(t,1)=2*(1-((t + eps)/T)^0.25+abs(w(t+1))*(((t + eps)/T)^0.25-((t + eps)/T)^3));
+    %     p(t)=2*(1-(t/Max_iter)^(1/4))+abs(w(t+1))*((t/Max_iter)^(1/4)-((t/Max_iter)^3));
+    beta_min=0.2;
+    beta_max=1.2;
+    beta=beta_min+( beta_max-beta_min)*(1-(t/Max_iter)^3)^2;
+    alpha=abs(beta.*sin(3*pi/2+sin(3*pi*beta/2)));
+    k = 1 - (1 - 1/N) * (t - 1) / (Max_iter- 1);
+    numElite = round(k * N);  % 精英解数量
+    if  numElite<1
+       numElite = 1;
+    end
+    [~, sortedIdx] = sort(fit);
+    elitePop = X(sortedIdx(1:numElite), :);
+    % 计算平均解 TV（式 36）
+    TV = mean(X, 1);
+    F0 = 0.5;
+    a = exp(1 - Max_iter / (Max_iter+ 1 - t));
+    F = F0 * 2^a;
+    new_X= DEMS_Algorithm(elitePop, dim, X,N,F,numElite,ub,lb);
+    for i=1:N
+        new_fit(i,1) = feval(fobj,new_X(i,:));
+        FE=FE+1;
+        if bestfit1> new_fit(i,1)
+            bestfit1= new_fit(i,1);
+        end
+        Bestcost1(FE)=bestfit1;
+        if new_fit(i,1)<fit(i,1)
+            fit(i,1)=new_fit(i,1);
+            X(i,:)=new_X(i,:);
+        end
+    end
+    %         count1(t,1)=length(find(n1(1,:)==1));
+    %     if(min(fit2)<best_fit)
+    %         [best_fit,best_index]=min(fit2);
+    %         xbest=X(best_index,:);
+    %     end
+    if(min(fit)<bestfit1k)
+        [bestfit1k,best_index]=min(fit);
+        xbest=X(best_index,:);
+    end
+    %% Hunting stage: Expand the search scope and search for potential prey positions
+    for i=1:N
+        for j=1:dim
+            r1=rand;
+            %                 r2=0.3+(1-(t/Max_iter)^3)^2;
+            %                 r3=abs(r2*sin(1.5*pi+cos(3.5*pi*r2)));
+            % r1=rand*2*pi;
+            % r2=rand*pi;
+            % tau=(sqrt(5)-1)/2;
+            % theta1=-pi+2*pi*(1-tau);
+            % theta2=-pi+2*pi*(tau);
+            %             if t<Max_iter/2
+            %             new_X(i,j)=X(i,j)+(lb(:,j)+r1*(ub(:,j)-lb(:,j)))/(t);
+            %             else
+            %                new_X(i,j)=X(i,j)+(lb(:,j)+r1*(ub(:,j)-lb(:,j)))/(0.5*t) ;
+            %             end
+            %
+            
+            %             new_X(i,j)=X(i,j)*abs(sin(r1))+r2*sin(r1)*((lb(:,j)+rand*(ub(:,j)-lb(:,j)))/(t))*levy(2)*abs(theta1*xbest(:,j)-theta2*X(i,j));
+            new_X(i,j)=X(i,j)+(lb(:,j)+r1*(ub(:,j)-lb(:,j)))/t;
+            
+        end
+        new_X(i,:) = max( new_X(i,:),lb);
+        new_X(i,:) = min( new_X(i,:),ub);
+        new_fit(i,1) = feval(fobj,new_X(i,:));
+        FE=FE+1;
+        if bestfit1> new_fit(i,1)
+            bestfit1= new_fit(i,1);
+        end
+        Bestcost1(FE)=bestfit1;
+        if new_fit(i,1)<fit(i,1)
+            fit(i,1)=new_fit(i,1);
+            X(i,:)=new_X(i,:);
+        end
+    end
+    %         count1(t,1)=length(find(n1(1,:)==1));
+    %     if(min(fit2)<best_fit)
+    %         [best_fit,best_index]=min(fit2);
+    %         xbest=X(best_index,:);
+    %     end
+    if(min(fit)<bestfit1k)
+        [bestfit1k,best_index]=min(fit);
+        xbest=X(best_index,:);
+    end
+    %% Best Position Attraction Effect: Approaching the Best Position
+    for i=1:N
+        %%Moving towards the best hunting position (exploitation)
+        %I(i,1)=feval(fhd,X(i,:)',func_num);
+        %         I(i,1)=feval(fobj,X(i,:));
+        %         I(i,1)=(fit(i)-min(fit))/(max(fit)-min(fit)+eps);
+        I(i,1)=fit(i);
+        %                         I=fit;
+        
+        %         w1(i)=(min(fit)-max(fit))/(fit(i,1)-max(fit));
+        %          w1(i)=(1-exp(abs(min(fit))+abs(min(fit)))/exp(abs(fit(i))+abs(fit(i))))*0.6+(1-1/(1+exp(5*(Max_iter-2*t)/Max_iter)));
+        s=m*(I(i,1).^rand);%s的值随r的改变而改变，即使是已经确定好的数也会随着下次另一个书的改变而整体改变
+        %s=m*I.^r;  %eq4.3
+        s=real(s);%返回实部
+        %         q=randi([1,N]);
+        %         u=ceil(rand(1,2)*N);
+        %         if i==1
+        %         p1max=0.2;
+        %         p1min=0.8;
+        %            theta=1+trnd(1)*tan(pi*(rand-0.5));
+        % %         p1(i)=log(abs(min(fit))+abs(min(fit)))*(p1max-p1min)/log(abs(fit(i,1))+abs(fit(i,1)));
+        %         if rand<0.8
+        %             for j=1:dim
+        %                 new_X(i,j)=w1(t)*X(i,j)+s*(rand*rand*xbest(:,j)-X(i,j));
+        %             end
+        %             % X(i,j)=s(i,1)*(xbest(:,j)-X(i,j));
+        %         else
+        %             if rand>0.9
+        %             for j=1:dim
+        %                 %Xu(i,j)=s(i,1)*(xbest(:,j)-X(i,j));
+        %                 new_X(i,j)=theta*xbest(:,j)+s*(rand*rand*X(u(1),j)-X(u(2),j));  %与4.4所说的话对不上          eq4.4
+        % %                                 new_X(i,j)=(Xj(i,j)+X(i-1,j))/2;
+        %             end
+        %             else
+        %                 for j=1:dim
+        %                 %Xu(i,j)=s(i,1)*(xbest(:,j)-X(i,j));
+        %                 new_X(i,j)=w1(t)*xbest(:,j)+0.618*s*(rand*rand*X(u(1),j)-X(u(2),j));  %与4.4所说的话对不上          eq4.4
+        % %                                 new_X(i,j)=(Xj(i,j)+X(i-1,j))/2;
+        %             end
+        %             end
+        %         end
+        %         if i==1
+        %             for j=1:dim
+        %                 new_X(i,j)=(1-w1(t))*(X(i,j)+(lb(:,j)+rand*(ub(:,j)-lb(:,j)))/t)+w1(t)*(s*(xbest(:,j)-X(i,j)));
+        %             end
+        % X(i,j)=s(i,1)*(xbest(:,j)-X(i,j));
+        %         else
+        %             for j=1:dim
+        %                 %Xu(i,j)=s(i,1)*(xbest(:,j)-X(i,j));
+        %                 Xj(i,j)=s*(xbest(:,j)-X(i,j));  %与4.4所说的话对不上          eq4.4
+        %                 new_X(i,j)=(Xj(i,j)+X(i-1,j))/(2*rand);
+        %             end
+        %         end
+        if i==1
+            for j=1:dim
+                new_X(i,j)=s*(xbest(:,j)-X(i,j));
+                
+            end
+        else
+            for j=1:dim
+                %                 D=(tan(pi*Max_iter/t)+1)/2;
+                %Xu(i,j)=s(i,1)*(xbest(:,j)-X(i,j));
+                Xj(i,j)=s*(xbest(:,j)-X(i,j));  %与4.4所说的话对不上          eq4.4
+                %                 new_X(i,j)=(D*xbest(:,j)+Xj(i,j))/2;
+                new_X(i,j)=(X(i-1,j)+Xj(i,j))/2;
+            end
+        end
+        %                for j=1:dim
+        %                         new_X(i,j)=s*(normrnd(0,1)*xbest(:,j)-X(i,j));
+        %                end
+        %
+        % Handling boundary violations
+        
+        if  new_X(i,:)>=lb & new_X(i,:)<=ub%
+            new_fit(i,1) = feval(fobj,new_X(i,:));
+            FE=FE+1;
+            if bestfit1>new_fit(i,1)
+                bestfit1=new_fit(i,1);
+            end
+            Bestcost1(FE)=bestfit1;
+            if new_fit(i,1)<fit(i,1)
+                fit(i,1)=new_fit(i,1);
+                X(i,:)=new_X(i,:);
+                
+            end
+        end
+    end
+    if(min(fit)<bestfit1k)
+        [bestfit1k,best_index]=min(fit);
+        xbest=X(best_index,:);
+    end
+    for i=1:N
+        lamda=randsrc(1,1,[-1,1]);%判断lamda是j运行10次一变还是j运行一次一变
+        %         if rand>(1-t/Max_iter)
+        
+        %         for j=1:dim
+        %            r2=rand;
+        %             %  X(i,j)=xbest(:,j)+r2*(xbest(:,j)-X(i,j))+lamda*(p(t)).^2*(xbest(:,j)-X(i,j));
+        %             %             new_X(i,j)=xbest(:,j)+r2*(xbest(:,j)-X(i,j))+lamda.*p(t).^2.*(xbest(:,j)-X(i,j));
+        % %             rr=randi([1,N]);
+        % %             new_X(i,j)=X(i,j)+levy1(1.5)*(X(rr,j)-X(i,j))+lamda.*p(t).^2.*(xbest(:,j)-X(i,j));
+        %              new_X(i,j)=X(i,j)+r2*(xbest(:,j)-X(i,j))+lamda.*p(t).^2.*(xbest(:,j)-X(i,j));
+        
+        %         end
+        %         if t<=Max_iter/2
+        for j=1:dim
+            r2=rand;
+            %             z=pi/6+pi*(1-t/Max_iter)/3;
+            %  X(i,j)=xbest(:,j)+r2*(xbest(:,j)-X(i,j))+lamda*(p(t)).^2*(xbest(:,j)-X(i,j));
+            %             new_X(i,j)=xbest(:,j)+r2*(xbest(:,j)-X(i,j))+lamda.*p(t).^2.*(xbest(:,j)-X(i,j));
+            %             rr=randi([1,N]);
+            new_X(i,j)=xbest(:,j)+r2*(xbest(:,j)-X(i,j))+lamda.*p(t).^2.*(xbest(:,j)-X(i,j));
+            %               new_X(i,j)=X(i,j)+sin(z)*r2*(X(rr,j)-X(i,j))+lamda.*p(t).^2.*(xbest(:,j)-X(i,j));
+        end
+        %         else
+        %              for j=1:dim
+        %             r2=rand;
+        %             z=pi/6+pi*(1-t/Max_iter)/3;
+        %             new_X(i,j)=xbest(:,j)+cos(z)*r2*(xbest(:,j)-X(i,j))+lamda.*w1*p(t).^2.*(xbest(:,j)-X(i,j));
+        % %             new_X(i,j)=xbest(:,j)+sin(z)*r2*(xbest(:,j)-X(i,j))+lamda.*p(t).^2.*(xbest(:,j)-X(i,j));
+        % %                l=-1+rand*2;
+        % %                  l=1-2*t/Max_iter;
+        % %           new_X(i,j)=abs(xbest(:,j)*2*rand-X(i,j))*exp(l)*cos(2*pi*l)+ xbest(:,j);   %这个地方直接跑，效果不好，尝试加惯性权重
+        % %         end
+        %              end
+        
+        %fit4(i,1)=feval(fhd,X(i,:)',func_num);
+        %         fit4(i,1)=feval(fobj,X(i,:));
+        %         fit4(i,1)=fitness(X(i,:));
+        
+        % Handling boundary violations
+        new_X(i,:)=SpaceBound1( new_X(i,:),ub,lb);
+        %评估适应度
+        %     new_fit(i,1)=fitness(new_X(i,:));
+        new_fit(i,1) = feval(fobj,new_X(i,:));
+        FE=FE+1;
+        if bestfit1>new_fit(i,1)
+            bestfit1=new_fit(i,1);
+        end
+        Bestcost1(FE)=bestfit1;
+        if new_fit(i,1)<fit(i,1)
+            fit(i,1)=new_fit(i,1);
+            X(i,:)=new_X(i,:);
+        end
+        %         if fit(i) < fitpbest(i)
+        %             pbest(i,:) = X(i,:);
+        %             fitpbest(i,1) = fit(i,1);
+        %         end
+    end
+    if(min(fit)<bestfit1k)
+        [bestfit1k,best_index]=min(fit);
+        xbest=X(best_index,:);
+    end
+    %% Self protection mechanism/dangerous escape behavior
+    for i=1:N
+        l1=randsrc(1,1,[0,1]);
+        l2=randsrc(1,1,[0,1]);
+        a1= l1*2*rand+(1-l1);
+        a2= l1*rand+(1-l1);
+        a3= l1*rand+(1-l1);
+        rho=alpha.*(2*rand-1);
+        %         q=randi([1,N]);
+        %         a=1:50;
+        %         a(best_index)=[];
+        %         k=randi(length(a));
+        %         u1=a(k);
+        %         a(k)=[];
+        %         u2=a(randi((length(a))));
+        
+        u=randperm(50,3);
+        for j=1:dim
+            X1(1,j)=lb(:,j)+rand*(ub(:,j)-lb(:,j));
+            X2(1,j)=lb(:,j)+rand*(ub(:,j)-lb(:,j));
+            Xr(1,j)=lb(:,j)+rand*(ub(:,j)-lb(:,j));%一组解
+            Xk(i,j)=l2*(X(u(3),j)-Xr(1,j))+Xr(1,j);%l2等于0时，为50*1的一列数，l2为1时，为一个值，这么写就把一个值放在50*1的一列上，一列全是这个值
+            k1=-1+2*rand();
+            k2=randn();
+            %        u1=ceil(rand(1,1)*dn);
+            if a1<0.5
+                %  X(i,j)=X(i,j)+k1*(a1*xbest(:,j)-a2*Xk(i,j))+k2*rho*(a3*(X2(i,j)-X1(i,j)))+a2*(X(u1,j)-X(u2,j))/2;
+                %                 new_X(i,j)=X(i,j)+k1.*(a1*X(m1(u1),j)-a2*Xk(i,j))+k2*rho*(a3*(X2(1,j)-X1(1,j)))+a2*(X(u(1),j)-X(u(2),j))/2;
+                new_X(i,j)=X(i,j)+k1.*(a1*xbest(:,j)-a2*Xk(1,j))+k2*rho*(a3*(X2(1,j)-X1(1,j)))+a2*(X(u(1),j)-X(u(2),j))/2;
+            else
+                % X(i,j)=xbest(:,j)+k1*(a1*xbest(:,j)-a2*Xk(i,j))+k2*rho*(a3*(X2(i,j)-X1(i,j)))+a2*(X(u1,j)-X(u2,j))/2;
+                %                 new_X(i,j)=xbest(:,j)+k1.*(a1*X(m1(u1),j)-a2*Xk(i,j))+k2*rho*(a3*(X2(1,j)-X1(1,j)))+a2*(X(u(1),j)-X(u(2),j))/2;
+                new_X(i,j)=xbest(:,j)+k1.*(a1*xbest(:,j)-a2*Xk(1,j))+k2*rho*(a3*(X2(1,j)-X1(1,j)))+a2*(X(u(1),j)-X(u(2),j))/2;
+            end
+        end
+        
+        % if rand <0.9
+        %        new_X(i,j)=(1-w1(t))*(X(i,j)+k1.*(a1*xbest(:,j)-a2*Xk(i,j))+k2*rho*(a3*(X2(1,j)-X1(1,j)))+a2*(X(u(1),j)-X(u(2),j))/2)+w1(t)*(xbest(:,j)+k1.*(a1*xbest(:,j)-a2*Xk(i,j))+k2*rho*(a3*(X2(1,j)-X1(1,j)))+a2*(X(u(1),j)-X(u(2),j))/2);
+        % else
+        %     new_X(i,j)=min(X(:,j))+rand*(max(X(:,j))-min(X(:,j)));
+        % end
+        
+        %         Check if solutions go outside the search space and bring them back
+        Flag4ub= new_X(i,:)>ub;%对于二维数组中的第i行，判断数组中的每个元素是否大于给定的上限值ub,返回1或者0
+        Flag4lb= new_X(i,:)<lb;
+        new_X(i,:)=( new_X(i,:).*(~(Flag4ub+Flag4lb)))+ub.*Flag4ub+lb.*Flag4lb;%若是上边界与下边界都不符合，是在边界的基础上再加上种群
+        
+        
+        %评估适应度
+        %     new_fit(i,1)=fitness(new_X(i,:));
+        new_fit(i,1) = feval(fobj,new_X(i,:));
+        FE=FE+1;
+        if bestfit1>new_fit(i,1)
+            bestfit1=new_fit(i,1);
+        end
+        Bestcost1(FE)=bestfit1;
+        if new_fit(i,1)<fit(i,1)
+            fit(i,1)=new_fit(i,1);
+            X(i,:)=new_X(i,:);
+        end
+    end
+    if(min(fit)<bestfit1k)
+        [bestfit1k,best_index]=min(fit);
+        xbest=X(best_index,:);
+    end
+    % APDS主循环
+    for i = 1:N
+        % 随机选择不同个体k
+        kk = randi(N);
+        while kk == i
+            kk = randi(N);
+        end
+        % APDS位置更新规则（式29）
+        r6 = rand(1,dim);
+        I1 = randi([1, 2]); % 随机1或2
+        
+        if fit(kk,1) < fit(i,1)
+            % 情况1：向更优解移动
+            new_X(i,:) = X(i, :) + r6 .* (X(kk, :) - I1 .* X(i, :));
+        else
+            % 情况2：远离较差解
+            new_X(i,:)= X(i, :) + r6 .* (X(i, :) - X(kk, :));
+        end
+        
+        % 边界处理
+         new_X(i,:)=SpaceBound1( new_X(i,:),ub,lb);
+       new_fit(i,1) = feval(fobj,new_X(i,:));
+        FE=FE+1;
+        if bestfit1>new_fit(i,1)
+            bestfit1=new_fit(i,1);
+        end
+        Bestcost1(FE)=bestfit1;
+        if new_fit(i,1)<fit(i,1)
+            fit(i,1)=new_fit(i,1);
+            X(i,:)=new_X(i,:);
+        end
+    end
+    
+    if(min(fit)<bestfit1k)
+        [bestfit1k,best_index]=min(fit);
+        xbest=X(best_index,:);
+    end
+    
+    [~, sortedIdxxx] = sort(fit);
+    eliteSize = 0.1 * N; % 至少1个精英
+    elitePop1 = X(sortedIdxxx(1:eliteSize), :);
+    
+    %% 步骤2: 生成反向精英种群（式31）
+    % 计算每维的最小最大值（式32）
+    minDims = min(elitePop1); % c^s_{i,j}
+    maxDims = max(elitePop1); % c^s_{i,j}
+    for i = 1:eliteSize
+        tau = rand(1, dim); % 式31中的τ_i
+        OEX(i, :) = tau .* (minDims + maxDims) - elitePop1(i, :);
+        % 边界约束
+        OEX(i,:) =SpaceBound1( OEX(i, :),ub,lb);
+        OEX_fit(i,1)  = feval(fobj,OEX(i,:));
+        FE=FE+1;
+        if bestfit1> OEX_fit(i,1)
+            bestfit1= OEX_fit(i,1);
+        end
+        Bestcost1(FE)=bestfit1;
+    end
+    %% 步骤3: 合并种群并贪婪选择
+    combinedPop = [X; OEX];
+    combinedfit=[fit;OEX_fit];
+    [~, newIdxxx] = sort(combinedfit);
+    X = combinedPop(newIdxxx(1:N), :);
+    fit = combinedfit(newIdxxx(1:N),1);
+    
+    if(min(fit)<bestfit1k)
+        [bestfit1k,best_index]=min(fit);
+        xbest=X(best_index,:);
+    end
+    
+    pop=X;
+    bestfit=Bestcost1(FE);
+    Bestcost1(MaxFES+1:FE)=[];
+    Bestcost2(Max_iter+1:t-1)=[];
+    tk=t-1;
+end
+end
+
+
+
+
